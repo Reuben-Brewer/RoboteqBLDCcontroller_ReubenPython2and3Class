@@ -6,7 +6,7 @@ reuben.brewer@gmail.com
 www.reubotics.com
 
 Apache 2 License
-Software Revision E, 05/10/2023
+Software Revision F, 07/18/2023
 
 Verified working on: Python 2.7, 3.8 for Windows 8.1, 10 64-bit and Raspberry Pi Buster (may work on Mac in non-GUI mode, but haven't tested yet).
 '''
@@ -16,6 +16,7 @@ __author__ = 'reuben.brewer'
 ##########################################
 from RoboteqBLDCcontroller_ReubenPython2and3Class import *
 from MyPrint_ReubenPython2and3Class import *
+from MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3Class import *
 ##########################################
 
 ##########################################
@@ -217,8 +218,11 @@ if __name__ == '__main__':
     global USE_MYPRINT_FLAG
     USE_MYPRINT_FLAG = 1
 
+    global USE_PLOTTER_FLAG
+    USE_PLOTTER_FLAG = 1
+
     global USE_SINUSOIDAL_INPUT_FLAG
-    USE_SINUSOIDAL_INPUT_FLAG = 0
+    USE_SINUSOIDAL_INPUT_FLAG = 1
     #################################################
     #################################################
 
@@ -298,7 +302,7 @@ if __name__ == '__main__':
     GUI_RootAfterCallbackInterval_Milliseconds = 30
 
     global SINUSOIDAL_MOTION_INPUT_ROMtestTimeToPeakAngle
-    SINUSOIDAL_MOTION_INPUT_ROMtestTimeToPeakAngle = 2.0
+    SINUSOIDAL_MOTION_INPUT_ROMtestTimeToPeakAngle = 1.0
 
     global SINUSOIDAL_MOTION_INPUT_MinValue
     SINUSOIDAL_MOTION_INPUT_MinValue = -20.0
@@ -363,6 +367,18 @@ if __name__ == '__main__':
     global RoboteqBLDCcontroller_MostRecentDict_Speed_DegreesPerSec
     RoboteqBLDCcontroller_MostRecentDict_Speed_DegreesPerSec = -11111.0
 
+    global RoboteqBLDCcontroller_MostRecentDict_Speed_RPM_Calculated
+    RoboteqBLDCcontroller_MostRecentDict_Speed_RPM_Calculated = -11111.0
+
+    global RoboteqBLDCcontroller_MostRecentDict_Speed_RPS_Calculated
+    RoboteqBLDCcontroller_MostRecentDict_Speed_RPS_Calculated = -11111.0
+
+    global RoboteqBLDCcontroller_MostRecentDict_Speed_RadiansPerSec_Calculated
+    RoboteqBLDCcontroller_MostRecentDict_Speed_RadiansPerSec_Calculated = -11111.0
+
+    global RoboteqBLDCcontroller_MostRecentDict_Speed_DegreesPerSec_Calculated
+    RoboteqBLDCcontroller_MostRecentDict_Speed_DegreesPerSec_Calculated = -11111.0
+
     global RoboteqBLDCcontroller_MostRecentDict_Time
     RoboteqBLDCcontroller_MostRecentDict_Time = -11111.0
     
@@ -389,7 +405,6 @@ if __name__ == '__main__':
 
     global RoboteqBLDCcontroller_MostRecentDict_ControlMode_EnglishString
     RoboteqBLDCcontroller_MostRecentDict_ControlMode_EnglishString = "unknown"
-
     #################################################
     #################################################
 
@@ -399,6 +414,24 @@ if __name__ == '__main__':
 
     global MYPRINT_OPEN_FLAG
     MYPRINT_OPEN_FLAG = -1
+    #################################################
+    #################################################
+
+    #################################################
+    #################################################
+    global MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject
+
+    global PLOTTER_OPEN_FLAG
+    PLOTTER_OPEN_FLAG = -1
+
+    global MyPlotterPureTkinter_MostRecentDict
+    MyPlotterPureTkinter_MostRecentDict = dict()
+
+    global MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_MostRecentDict_StandAlonePlottingProcess_ReadyForWritingFlag
+    MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_MostRecentDict_StandAlonePlottingProcess_ReadyForWritingFlag = -1
+
+    global LastTime_MainLoopThread_PLOTTER
+    LastTime_MainLoopThread_PLOTTER = -11111.0
     #################################################
     #################################################
 
@@ -435,7 +468,7 @@ if __name__ == '__main__':
 
     global RoboteqBLDCcontroller_ReubenPython2and3ClassObject_setup_dict
     RoboteqBLDCcontroller_ReubenPython2and3ClassObject_setup_dict = dict([("GUIparametersDict", RoboteqBLDCcontroller_ReubenPython2and3ClassObject_GUIparametersDict),
-                                                                                ("DesiredSerialNumber_USBtoSerialConverter", "FT5ALD6OA"), #M0=FT5ALD6OA,M1=FT5AKLUOA, CHANGE THIS TO MATCH YOUR UNIQUE USB-TO-RS232 CONVERTER SERIAL NUMBER
+                                                                                ("DesiredSerialNumber_USBtoSerialConverter", "FT5AKLUOA"), #M0=FT5ALD6OA,M1=FT5AKLUOA, CHANGE THIS TO MATCH YOUR UNIQUE USB-TO-RS232 CONVERTER SERIAL NUMBER
                                                                                 ("NameToDisplay_UserSet", "Reuben's Test RoboteQ SBL1360A Program"),
                                                                                 ("ControlMode_Starting", SINUSOIDAL_CONTROL_MODE),
                                                                                 ("Position_Target_Min_UserSet", -1000.0),
@@ -455,6 +488,8 @@ if __name__ == '__main__':
                                                                                 ("Torque_Amps_Starting", 10.0),
                                                                                 ("DedicatedRxThread_TimeToSleepEachLoop", 0.001),
                                                                                 ("DedicatedTxThread_TimeToSleepEachLoop", 0.005),
+                                                                                ("SerialRxBufferSize", 10),
+                                                                                ("SerialTxBufferSize", 10),
                                                                                 ("DedicatedTxThread_TxMessageToSend_Queue_MaxSize", 1),
                                                                                 ("HeartbeatTimeIntervalMilliseconds", 1000.00), #0 turns the Heartbeat off, reset to 1000.00
                                                                                 ("NumberOfMagnetsInMotor", 30),
@@ -462,6 +497,8 @@ if __name__ == '__main__':
                                                                                 ("PID_Ki", 1000000.0),
                                                                                 ("PID_Kd", 0.0),
                                                                                 ("PID_IntegratorCap1to100percent", 100.0),
+                                                                                ("VariableStreamingSendDataEveryDeltaT_MillisecondsInt", 5),
+                                                                                ("Speed_RPS_Calculated_LowPassFilter_ExponentialSmoothingFilterLambda", 0.05),
                                                                                 ("SetBrushlessCounterTo0atStartOfProgramFlag", 1)])
 
     if USE_RoboteqBLDCcontroller_FLAG == 1:
@@ -509,6 +546,52 @@ if __name__ == '__main__':
 
     #################################################
     #################################################
+    global MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_GUIparametersDict
+    MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_GUIparametersDict = dict([("EnableInternal_MyPrint_Flag", 1),
+                                                                                                ("NumberOfPrintLines", 10),
+                                                                                                ("UseBorderAroundThisGuiObjectFlag", 0),
+                                                                                                ("GraphCanvasWidth", 890),
+                                                                                                ("GraphCanvasHeight", 700),
+                                                                                                ("GraphCanvasWindowStartingX", 0),
+                                                                                                ("GraphCanvasWindowStartingY", 0),
+                                                                                                ("GUI_RootAfterCallbackInterval_Milliseconds_IndependentOfParentRootGUIloopEvents", 20)])
+
+    global MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_setup_dict
+    MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_setup_dict = dict([("GUIparametersDict", MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_GUIparametersDict),
+                                                                                        ("ParentPID", os.getpid()),
+                                                                                        ("WatchdogTimerExpirationDurationSeconds_StandAlonePlottingProcess", 0.0),
+                                                                                        ("MarkerSize", 3),
+                                                                                        ("CurvesToPlotNamesAndColorsDictOfLists", dict([("NameList", ["Channel0", "Channel1", "Channel2", "Channel3"]),("ColorList", ["Red", "Green", "Blue", "Black"])])),
+                                                                                        ("NumberOfDataPointToPlot", 100),
+                                                                                        ("XaxisNumberOfTickMarks", 10),
+                                                                                        ("YaxisNumberOfTickMarks", 10),
+                                                                                        ("XaxisNumberOfDecimalPlacesForLabels", 3),
+                                                                                        ("YaxisNumberOfDecimalPlacesForLabels", 3),
+                                                                                        ("XaxisAutoscaleFlag", 1),
+                                                                                        ("YaxisAutoscaleFlag", 1),
+                                                                                        ("X_min", 0.0),
+                                                                                        ("X_max", 20.0),
+                                                                                        ("Y_min", -0.0015),
+                                                                                        ("Y_max", 0.0015),
+                                                                                        ("XaxisDrawnAtBottomOfGraph", 0),
+                                                                                        ("XaxisLabelString", "Time (sec)"),
+                                                                                        ("YaxisLabelString", "Y-units (units)"),
+                                                                                        ("ShowLegendFlag", 1)])
+
+    if USE_PLOTTER_FLAG == 1:
+        try:
+            MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject = MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3Class(MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_setup_dict)
+            PLOTTER_OPEN_FLAG = MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject.OBJECT_CREATED_SUCCESSFULLY_FLAG
+
+        except:
+            exceptions = sys.exc_info()[0]
+            print("MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject, exceptions: %s" % exceptions)
+            traceback.print_exc()
+    #################################################
+    #################################################
+
+    #################################################
+    #################################################
     if USE_RoboteqBLDCcontroller_FLAG == 1 and RoboteqBLDCcontroller_OPEN_FLAG != 1:
         print("Failed to open RoboteqBLDCcontroller_ReubenPython2and3Class.")
         ExitProgram_Callback()
@@ -519,6 +602,14 @@ if __name__ == '__main__':
     #################################################
     if USE_MYPRINT_FLAG == 1 and MYPRINT_OPEN_FLAG != 1:
         print("Failed to open MyPrint_ReubenPython2and3ClassObject.")
+        ExitProgram_Callback()
+    #################################################
+    #################################################
+
+    #################################################
+    #################################################
+    if USE_PLOTTER_FLAG == 1 and PLOTTER_OPEN_FLAG != 1:
+        print("Failed to open MyPlotterPureTkinterClass_Object.")
         ExitProgram_Callback()
     #################################################
     #################################################
@@ -553,10 +644,16 @@ if __name__ == '__main__':
                 RoboteqBLDCcontroller_MostRecentDict_Position_Rev = RoboteqBLDCcontroller_MostRecentDict["Position_Rev"]
                 RoboteqBLDCcontroller_MostRecentDict_Position_Radians = RoboteqBLDCcontroller_MostRecentDict["Position_Radians"]
                 RoboteqBLDCcontroller_MostRecentDict_Position_Degrees = RoboteqBLDCcontroller_MostRecentDict["Position_Degrees"]
+
                 RoboteqBLDCcontroller_MostRecentDict_Speed_RPM = RoboteqBLDCcontroller_MostRecentDict["Speed_RPM"]
                 RoboteqBLDCcontroller_MostRecentDict_Speed_RPS = RoboteqBLDCcontroller_MostRecentDict["Speed_RPS"]
                 RoboteqBLDCcontroller_MostRecentDict_Speed_RadiansPerSec = RoboteqBLDCcontroller_MostRecentDict["Speed_RadiansPerSec"]
                 RoboteqBLDCcontroller_MostRecentDict_Speed_DegreesPerSec = RoboteqBLDCcontroller_MostRecentDict["Speed_DegreesPerSec"]
+
+                RoboteqBLDCcontroller_MostRecentDict_Speed_RPM_Calculated = RoboteqBLDCcontroller_MostRecentDict["Speed_RPM_Calculated"]
+                RoboteqBLDCcontroller_MostRecentDict_Speed_RPS_Calculated = RoboteqBLDCcontroller_MostRecentDict["Speed_RPS_Calculated"]
+                RoboteqBLDCcontroller_MostRecentDict_Speed_RadiansPerSec_Calculated = RoboteqBLDCcontroller_MostRecentDict["Speed_RadiansPerSec_Calculated"]
+                RoboteqBLDCcontroller_MostRecentDict_Speed_DegreesPerSec_Calculated = RoboteqBLDCcontroller_MostRecentDict["Speed_DegreesPerSec_Calculated"]
 
                 RoboteqBLDCcontroller_MostRecentDict_Time = RoboteqBLDCcontroller_MostRecentDict["Time"]
                 RoboteqBLDCcontroller_MostRecentDict_DataStreamingFrequency_CalculatedFromDedicatedRxThread = RoboteqBLDCcontroller_MostRecentDict["DataStreamingFrequency_CalculatedFromDedicatedRxThread"]
@@ -585,6 +682,25 @@ if __name__ == '__main__':
         ###################################################
         ###################################################
 
+        ####################################################
+        ####################################################
+        if PLOTTER_OPEN_FLAG == 1:
+
+            ####################################################
+            MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_MostRecentDict = MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject.GetMostRecentDataDict()
+
+            if "StandAlonePlottingProcess_ReadyForWritingFlag" in MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_MostRecentDict:
+                MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_MostRecentDict_StandAlonePlottingProcess_ReadyForWritingFlag = MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_MostRecentDict["StandAlonePlottingProcess_ReadyForWritingFlag"]
+
+                if MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject_MostRecentDict_StandAlonePlottingProcess_ReadyForWritingFlag == 1:
+                    if CurrentTime_MainLoopThread - LastTime_MainLoopThread_PLOTTER >= 0.030:
+                        MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject.ExternalAddPointOrListOfPointsToPlot(["Channel0", "Channel1", "Channel2"], [CurrentTime_MainLoopThread]*3, [RoboteqBLDCcontroller_MostRecentDict_Position_Rev, RoboteqBLDCcontroller_MostRecentDict_Speed_DegreesPerSec, RoboteqBLDCcontroller_MostRecentDict_Speed_DegreesPerSec_Calculated])
+                        LastTime_MainLoopThread_PLOTTER = CurrentTime_MainLoopThread
+            ####################################################
+
+        ####################################################
+        ####################################################
+
         time.sleep(0.002)
     #################################################
     #################################################
@@ -601,6 +717,11 @@ if __name__ == '__main__':
     #################################################
     if MYPRINT_OPEN_FLAG == 1:
         MyPrint_ReubenPython2and3ClassObject.ExitProgram_Callback()
+    #################################################
+
+    #################################################
+    if PLOTTER_OPEN_FLAG == 1:
+        MyPlotterPureTkinterStandAloneProcess_ReubenPython2and3ClassObject.ExitProgram_Callback()
     #################################################
 
     #################################################

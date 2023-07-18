@@ -6,7 +6,7 @@ reuben.brewer@gmail.com
 www.reubotics.com
 
 Apache 2 License
-Software Revision E, 05/10/2023
+Software Revision F, 07/18/2023
 
 Verified working on: Python 2.7, 3.8 for Windows 8.1, 10 64-bit and Raspberry Pi Buster (may work on Mac in non-GUI mode, but haven't tested yet).
 '''
@@ -115,8 +115,7 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
         self.SerialParity = serial.PARITY_NONE
         self.SerialStopBits = serial.STOPBITS_ONE
         self.SerialByteSize = serial.EIGHTBITS
-        self.SerialRxBufferSize = 100
-        self.SerialTxBufferSize = 100
+        self.SerialXonXoffSoftwareFlowControl = 1 #seems important for the Roboteq even though I've never had to use this with other USB-serial devices.
         self.SerialPortNameCorrespondingToCorrectSerialNumber = "default"
         self.SerialRxThread_still_running_flag = 0
         self.SerialTxThread_still_running_flag = 0
@@ -248,6 +247,8 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
         self.PID_Ki_last = -1
         self.PID_Kd_last = -1
         self.PID_IntegratorCap1to100percent_last = -1
+
+        self.Position_Rev_Last = 0.0
 
         self.MostRecentDataDict = dict()
 
@@ -676,6 +677,30 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
 
         #########################################################
         #########################################################
+        if "SerialRxBufferSize" in setup_dict:
+            self.SerialRxBufferSize = round(self.PassThroughFloatValuesInRange_ExitProgramOtherwise("SerialRxBufferSize", setup_dict["SerialRxBufferSize"], 0.0, 4096.0)) #Maybe 64 to 4096
+
+        else:
+            self.SerialRxBufferSize = 64
+
+        print("RoboteqBLDCcontroller_ReubenPython2and3Class: SerialRxBufferSize: " + str(self.SerialRxBufferSize))
+        #########################################################
+        #########################################################
+
+        #########################################################
+        #########################################################
+        if "SerialTxBufferSize" in setup_dict:
+            self.SerialTxBufferSize = round(self.PassThroughFloatValuesInRange_ExitProgramOtherwise("SerialTxBufferSize", setup_dict["SerialTxBufferSize"], 0.0, 4096.0)) #Maybe 64 to 4096
+
+        else:
+            self.SerialTxBufferSize = 64
+
+        print("RoboteqBLDCcontroller_ReubenPython2and3Class: SerialTxBufferSize: " + str(self.SerialTxBufferSize))
+        #########################################################
+        #########################################################
+
+        #########################################################
+        #########################################################
         if "HeartbeatTimeIntervalMilliseconds" in setup_dict:
             HeartbeatTimeIntervalMilliseconds_TEMP = setup_dict["HeartbeatTimeIntervalMilliseconds"]
             if int(HeartbeatTimeIntervalMilliseconds_TEMP) in [-1, 0]:
@@ -763,10 +788,34 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
 
         #########################################################
         #########################################################
+        if "VariableStreamingSendDataEveryDeltaT_MillisecondsInt" in setup_dict:
+            self.VariableStreamingSendDataEveryDeltaT_MillisecondsInt = int(self.PassThroughFloatValuesInRange_ExitProgramOtherwise("VariableStreamingSendDataEveryDeltaT_MillisecondsInt", setup_dict["VariableStreamingSendDataEveryDeltaT_MillisecondsInt"], 1, 1000000000))
+
+        else:
+            self.VariableStreamingSendDataEveryDeltaT_MillisecondsInt = 5 ##10 worked for longer set of ["CB 0", "BS", "TC", "BA", "V 2", "FF"], 5 works for shorter-set of ["CB 0", "BS", "FF"].
+
+        print("RoboteqBLDCcontroller_ReubenPython2and3Class: VariableStreamingSendDataEveryDeltaT_MillisecondsInt: " + str(self.VariableStreamingSendDataEveryDeltaT_MillisecondsInt))
+        #########################################################
+        #########################################################
+
+        #########################################################
+        #########################################################
+        if "Speed_RPS_Calculated_LowPassFilter_ExponentialSmoothingFilterLambda" in setup_dict:
+            self.Speed_RPS_Calculated_LowPassFilter_ExponentialSmoothingFilterLambda = self.PassThroughFloatValuesInRange_ExitProgramOtherwise("Speed_RPS_Calculated_LowPassFilter_ExponentialSmoothingFilterLambda", setup_dict["Speed_RPS_Calculated_LowPassFilter_ExponentialSmoothingFilterLambda"], 0.0, 1.0)
+
+        else:
+            self.Speed_RPS_Calculated_LowPassFilter_ExponentialSmoothingFilterLambda = 0.05 #new_filtered_value = k * raw_sensor_value + (1 - k) * old_filtered_value
+
+        print("RoboteqBLDCcontroller_ReubenPython2and3Class: Speed_RPS_Calculated_LowPassFilter_ExponentialSmoothingFilterLambda: " + str(self.Speed_RPS_Calculated_LowPassFilter_ExponentialSmoothingFilterLambda))
+        #########################################################
+        #########################################################
+
+        #########################################################
+        #########################################################
         try:
             self.DataStreamingFrequency_CalculatedFromDedicatedTxThread_LowPassFilter_ReubenPython2and3ClassObject = LowPassFilter_ReubenPython2and3Class(dict([("UseMedianFilterFlag", 1),
                                                                                                             ("UseExponentialSmoothingFilterFlag", 1),
-                                                                                                            ("ExponentialSmoothingFilterLambda", 0.05)])) ##new_filtered_value = k * raw_sensor_value + (1 - k) * old_filtered_value
+                                                                                                            ("ExponentialSmoothingFilterLambda", 0.05)])) #new_filtered_value = k * raw_sensor_value + (1 - k) * old_filtered_value
 
         except:
             exceptions = sys.exc_info()[0]
@@ -781,11 +830,26 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
         try:
             self.DataStreamingFrequency_CalculatedFromDedicatedRxThread_LowPassFilter_ReubenPython2and3ClassObject = LowPassFilter_ReubenPython2and3Class(dict([("UseMedianFilterFlag", 1),
                                                                                                             ("UseExponentialSmoothingFilterFlag", 1),
-                                                                                                            ("ExponentialSmoothingFilterLambda", 0.05)])) ##new_filtered_value = k * raw_sensor_value + (1 - k) * old_filtered_value
+                                                                                                            ("ExponentialSmoothingFilterLambda", 0.05)])) #new_filtered_value = k * raw_sensor_value + (1 - k) * old_filtered_value
 
         except:
             exceptions = sys.exc_info()[0]
             print("RoboteqBLDCcontroller_ReubenPython2and3Class __init__: DataStreamingFrequency_CalculatedFromDedicatedRxThread_LowPassFilter_ReubenPython2and3ClassObject, Exceptions: %s" % exceptions)
+            traceback.print_exc()
+            return
+        #########################################################
+        #########################################################
+
+        #########################################################
+        #########################################################
+        try:
+            self.Speed_RPS_Calculated_LowPassFilter_ReubenPython2and3ClassObject = LowPassFilter_ReubenPython2and3Class(dict([("UseMedianFilterFlag", 1),
+                                                                                                            ("UseExponentialSmoothingFilterFlag", 1),
+                                                                                                            ("ExponentialSmoothingFilterLambda", self.Speed_RPS_Calculated_LowPassFilter_ExponentialSmoothingFilterLambda)])) ##new_filtered_value = k * raw_sensor_value + (1 - k) * old_filtered_value
+
+        except:
+            exceptions = sys.exc_info()[0]
+            print("RoboteqBLDCcontroller_ReubenPython2and3Class __init__: Speed_RPS_Calculated_LowPassFilter_ReubenPython2and3ClassObject, Exceptions: %s" % exceptions)
             traceback.print_exc()
             return
         #########################################################
@@ -1102,7 +1166,7 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
 
             try: #Will succeed as long as another program hasn't already opened the serial line.
 
-                self.SerialObject = serial.Serial(self.SerialPortNameCorrespondingToCorrectSerialNumber, self.SerialBaudRate, timeout=self.SerialTimeoutSeconds, parity=self.SerialParity, stopbits=self.SerialStopBits, bytesize=self.SerialByteSize)
+                self.SerialObject = serial.Serial(self.SerialPortNameCorrespondingToCorrectSerialNumber, self.SerialBaudRate, timeout=self.SerialTimeoutSeconds, parity=self.SerialParity, stopbits=self.SerialStopBits, bytesize=self.SerialByteSize, xonxoff=self.SerialXonXoffSoftwareFlowControl)
 
                 try:
                     if self.my_platform == "windows":
@@ -1460,7 +1524,6 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
         if self.SerialConnectedFlag == 1:
             try:
 
-                self.RxRefreshDeltaT_MillisecondsInt = 5 #10 worked for everything, 5 works for only CB0, BS, AND FF
                 self.PrefixOfReturnedMessages = "" #could be "d="
                 self.DelimiterOfReturnedMessages = ":"
 
@@ -1472,13 +1535,15 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
                 #self.VariableNamesEnglishList = ["EncoderPosition", "BrushlessCountRelative", "EncoderSpeedRPM", "SpeedRPM", "AnalogInput1", "BatteryCurrentInAmps", "BatteryVoltsX10", "FaultFlags"]
 
                 #### Longer set
-                self.VariableNamesToStartStreamingList = ["CB 0", "BS", "TC", "BA", "V 2", "FF"]
-                self.VariableNamesEnglishList = ["AbsoluteBrushlessCounter", "SpeedRPM", "TorqueTarget", "BatteryCurrentInAmps", "BatteryVoltsX10", "FaultFlags"]
+                #self.VariableNamesToStartStreamingList = ["CB 0", "BS", "TC", "BA", "V 2", "FF"]
+                #self.VariableNamesEnglishList = ["AbsoluteBrushlessCounter", "SpeedRPM", "TorqueTarget", "BatteryCurrentInAmps", "BatteryVoltsX10", "FaultFlags"]
                 #### Longer set
 
+                #unicorn
+
                 #### Shorter set
-                #self.VariableNamesToStartStreamingList = ["CB 0", "BS", "FF"]
-                #self.VariableNamesEnglishList = ["AbsoluteBrushlessCounter", "SpeedRPM", "FaultFlags"]
+                self.VariableNamesToStartStreamingList = ["CB 0", "BS", "FF"]
+                self.VariableNamesEnglishList = ["AbsoluteBrushlessCounter", "SpeedRPM", "FaultFlags"]
                 #### Shorter set
 
                 StringToTx = "/" + self.QuoteString + self.PrefixOfReturnedMessages + self.QuoteString + "," + self.QuoteString + self.DelimiterOfReturnedMessages + self.QuoteString
@@ -1486,7 +1551,7 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
                 for VariableNamesToStartStreaming in self.VariableNamesToStartStreamingList:
                     StringToTx = StringToTx + "?" + VariableNamesToStartStreaming + "_"
 
-                StringToTx = StringToTx + "_# " + str(self.RxRefreshDeltaT_MillisecondsInt) + "\r"
+                StringToTx = StringToTx + "_# " + str(self.VariableStreamingSendDataEveryDeltaT_MillisecondsInt) + "\r"
 
                 self.DedicatedTxThread_TxMessageToSend_Queue.put(StringToTx)
 
@@ -2602,7 +2667,7 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
                     if self.CurrentTime_CalculatedFromDedicatedTxThread - self.LastTimeHeartbeatWasSent_CalculatedFromDedicatedTxThread >= self.HeartbeatTimeIntervalMilliseconds/1000.0:
                         if self.SerialStrToTx_LAST_SENT != "":# and self.SerialStrToTx_LAST_SENT.find("!") == -1: #There aren't any "!" commands
                             self.SendSerialStrToTx(self.SerialStrToTx_LAST_SENT)
-                            print("Heartbeat at time = " + str(self.CurrentTime_CalculatedFromDedicatedTxThread))
+                            #print("Heartbeat at time = " + str(self.CurrentTime_CalculatedFromDedicatedTxThread))
                             self.LastTimeHeartbeatWasSent_CalculatedFromDedicatedTxThread = self.CurrentTime_CalculatedFromDedicatedTxThread
 
             ###############################################
@@ -2645,10 +2710,6 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
         ##########################################################################################################
         while self.EXIT_PROGRAM_FLAG == 0:
 
-            ##########################################################################################################
-            self.CurrentTime_CalculatedFromDedicatedRxThread = self.getPreciseSecondsTimeStampString() - self.StartingTime_CalculatedFromDedicatedRxThread
-            ##########################################################################################################
-
             try:
 
                 ##########################################################################################################
@@ -2669,13 +2730,18 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
                         a “plus” character (+) followed by a Carriage Return after every command as an acknowledgment.
                         '''
 
-                        #print("RxMessage: " + str(RxMessage))
+                        #print("RxMessage (original): " + str(RxMessage))
 
                         if chr(RxMessage[0]) != '+':
+
+                            ##########################################################################################################
+                            self.CurrentTime_CalculatedFromDedicatedRxThread = self.getPreciseSecondsTimeStampString() - self.StartingTime_CalculatedFromDedicatedRxThread
+                            ##########################################################################################################
 
                             ##########################################
                             RxMessageString = self.ConvertBytesObjectToString(RxMessage)
                             RxMessageString = RxMessageString.replace("\r", "")
+                            #print("RxMessageString: " + str(RxMessageString))
                             RxMessageStringList = RxMessageString.split(self.DelimiterOfReturnedMessages)
                             ##########################################
 
@@ -2687,6 +2753,11 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
                             ##########################################
                             if self.PrintAllReceivedSerialMessageForDebuggingFlag == 1:
                                 print("Type = " + str(type(RxMessageStringList)) + ", Len = " + str(len(RxMessageStringList)) + ", Message = " + str(RxMessageStringList))
+                            ##########################################
+
+                            ##########################################
+                            #print("RxMessage: " + str(RxMessage) + ", self.CurrentTime_CalculatedFromDedicatedRxThread: " + str(self.CurrentTime_CalculatedFromDedicatedRxThread))
+                            self.UpdateFrequencyCalculation_DedicatedRxThread_Filtered()
                             ##########################################
 
                             ##########################################
@@ -2713,6 +2784,15 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
                             self.MostRecentDataDict["RxMessage"]  = RxMessage
                             self.MostRecentDataDict["RxMessage_length"] = len(RxMessage)
 
+                            if self.DataStreamingDeltaT_CalculatedFromDedicatedRxThread > 0.0:
+                                Speed_RPM_Calculated_Raw = (self.MostRecentDataDict["Position_Rev"] - self.Position_Rev_Last)/self.DataStreamingDeltaT_CalculatedFromDedicatedRxThread
+                                Speed_RPM_Calculated_Raw = 0.5*Speed_RPM_Calculated_Raw #UNICORN, WHY DO WE HAVE TO DIVIDE BY 2 HERE????
+                                self.MostRecentDataDict["Speed_RPS_Calculated"] = self.Speed_RPS_Calculated_LowPassFilter_ReubenPython2and3ClassObject.AddDataPointFromExternalProgram(Speed_RPM_Calculated_Raw)["SignalOutSmoothed"]
+
+                                self.MostRecentDataDict["Speed_RPM_Calculated"] = self.MostRecentDataDict["Speed_RPS_Calculated"]*60.0
+                                self.MostRecentDataDict["Speed_RadiansPerSec_Calculated"] = self.MostRecentDataDict["Speed_RPS_Calculated"]/(self.NumberOfMagnetsInMotor*3.0)
+                                self.MostRecentDataDict["Speed_DegreesPerSec_Calculated"] = self.MostRecentDataDict["Speed_RadiansPerSec_Calculated"]*360.0
+
                             '''
                             #unicorn IMPLMENT THIS CONVERSION OF THE RECEIVED FAULT FLAG
                             Reply:
@@ -2733,8 +2813,7 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
                             ##########################################
 
                             ##########################################
-                            #print("RxMessage: " + str(RxMessage) + ", self.CurrentTime_CalculatedFromDedicatedRxThread: " + str(self.CurrentTime_CalculatedFromDedicatedRxThread))
-                            self.UpdateFrequencyCalculation_DedicatedRxThread_Filtered()
+                            self.Position_Rev_Last = self.MostRecentDataDict["Position_Rev"]
                             ##########################################
 
                             ##########################################
@@ -2749,14 +2828,14 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
 
                     except:
                         exceptions = sys.exc_info()[0]
-                        print("SerialRxThread ERROR: RxMessage: " + str(RxMessage) + ", Exceptions: %s" % exceptions)
+                        print("SerialRxThread ERROR: Original RxMessage: " + str(RxMessage) + ", RxMessageString: " + str(RxMessageString) + ", Exceptions: %s" % exceptions)
                         #traceback.print_exc()
                 ##########################################################################################################
 
             except:
                 exceptions = sys.exc_info()[0]
                 print("SerialRxThread ERROR: Exceptions: %s" % exceptions)
-                traceback.print_exc()
+                #traceback.print_exc()
             ##########################################################################################################
             ##########################################################################################################
 
@@ -2846,52 +2925,59 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
         #################################################
         #################################################
         self.Motor_Label = Label(self.myFrame, text="Motor_Label", width=120)
-        self.Motor_Label.grid(row=0, column=1, padx=10, pady=10, columnspan=1, rowspan=1)
+        self.Motor_Label.grid(row=1, column=0, padx=10, pady=10, columnspan=1, rowspan=1)
         #################################################
         #################################################
 
         #################################################
         #################################################
         self.ButtonsFrame = Frame(self.myFrame)
-        self.ButtonsFrame.grid(row = 1, column = 0, padx = 10, pady = 10, rowspan = 1, columnspan = 2)
+        self.ButtonsFrame.grid(row = 2, column = 0, padx = 10, pady = 10, rowspan = 1, columnspan = 2)
         #################################################
         #################################################
 
         #################################################
         #################################################
         self.SetCurrentPositionAsHome_Button = Button(self.ButtonsFrame, text="Home Encoder", state="normal", width=15, command=lambda: self.SetCurrentPositionAsHome_Button_Response())
-        self.SetCurrentPositionAsHome_Button.grid(row=1, column=0, padx=10, pady=10, columnspan=1, rowspan=1)
+        self.SetCurrentPositionAsHome_Button.grid(row=0, column=0, padx=10, pady=10, columnspan=1, rowspan=1)
         #################################################
         #################################################
 
         #################################################
         #################################################
         self.EnabledState_Button = Button(self.ButtonsFrame, text="Enabled", state="normal", width=20, command=lambda: self.EnabledState_Button_Response())
-        self.EnabledState_Button.grid(row=1, column=1, padx=10, pady=10, columnspan=1, rowspan=1)
+        self.EnabledState_Button.grid(row=0, column=1, padx=10, pady=10, columnspan=1, rowspan=1)
         #################################################
         #################################################
 
         #################################################
         #################################################
         self.StopInAllModes_Button = Button(self.ButtonsFrame, text="Stop", state="normal", width=20, command=lambda: self.StopInAllModes_Button_Response())
-        self.StopInAllModes_Button.grid(row=1, column=2, padx=10, pady=10, columnspan=1, rowspan=1)
+        self.StopInAllModes_Button.grid(row=0, column=2, padx=10, pady=10, columnspan=1, rowspan=1)
         #################################################
         #################################################
 
         #################################################
         #################################################
         self.EmergencyStopState_Button = Button(self.ButtonsFrame, text="EmergencyStop", state="normal", width=20, command=lambda: self.EmergencyStopState_Button_Response())
-        self.EmergencyStopState_Button.grid(row=1, column=3, padx=10, pady=10, columnspan=1, rowspan=1)
+        self.EmergencyStopState_Button.grid(row=0, column=3, padx=10, pady=10, columnspan=1, rowspan=1)
+        #################################################
+        #################################################
+
+        #################################################
+        #################################################
+        self.GUIscaleFrame = Frame(self.myFrame)
+        self.GUIscaleFrame.grid(row = 3, column = 0, padx = 10, pady = 10, rowspan = 1, columnspan = 2)
         #################################################
         #################################################
 
         ###################################################
         ###################################################
-        self.Motor_Target_GUIscale_LabelObject = Label(self.myFrame, text="ControlMode: " + self.ControlMode_EnlishString, width=self.TkinterScaleLabelWidth)
-        self.Motor_Target_GUIscale_LabelObject.grid(row=2, column=1, padx=1, pady=1, columnspan=1, rowspan=1)
+        self.Motor_Target_GUIscale_LabelObject = Label(self.GUIscaleFrame, text="ControlMode: " + self.ControlMode_EnlishString, width=self.TkinterScaleLabelWidth)
+        self.Motor_Target_GUIscale_LabelObject.grid(row=0, column=0, padx=1, pady=1, columnspan=1, rowspan=1)
 
         self.Motor_Target_GUIscale_Value = DoubleVar()
-        self.Motor_Target_GUIscale_ScaleObject = Scale(self.myFrame,
+        self.Motor_Target_GUIscale_ScaleObject = Scale(self.GUIscaleFrame,
                                         from_=self.Motor_Target_Min_UserSet,
                                         to=self.Motor_Target_Max_UserSet,
                                         #tickinterval=
@@ -2907,7 +2993,7 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
         self.Motor_Target_GUIscale_ScaleObject.bind('<B1-Motion>', lambda event: self.Motor_Target_GUIscale_EventResponse(event))
         self.Motor_Target_GUIscale_ScaleObject.bind('<ButtonRelease-1>', lambda event: self.Motor_Target_GUIscale_EventResponse(event))
         self.Motor_Target_GUIscale_ScaleObject.set(self.Motor_Target_ToBeSet)
-        self.Motor_Target_GUIscale_ScaleObject.grid(row=3, column=1, padx=1, pady=1, columnspan=1, rowspan=1)
+        self.Motor_Target_GUIscale_ScaleObject.grid(row=0, column=1, padx=1, pady=1, columnspan=1, rowspan=1)
         ###################################################
         ###################################################
 
@@ -2917,7 +3003,7 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
         self.PIDgains_LabelWidth = 35
         self.PIDgains_FontSize = 12
         
-        self.EntryListWithBlinking_ReubenPython2and3ClassObject_GUIparametersDict = dict([("root", self.myFrame),("UseBorderAroundThisGuiObjectFlag", 0),("GUI_ROW", 3),("GUI_COLUMN", 0)])
+        self.EntryListWithBlinking_ReubenPython2and3ClassObject_GUIparametersDict = dict([("root", self.myFrame),("UseBorderAroundThisGuiObjectFlag", 0),("GUI_ROW", 4),("GUI_COLUMN", 0)])
 
         #Roboteq Controllers User Manual v2.0, page 310 for values.
         #nn = Integral Gain *1,000,000, Example: ^KI 1 1500000: Set motor channel 1 Integral Gain to 1.5.
@@ -2946,7 +3032,7 @@ class RoboteqBLDCcontroller_ReubenPython2and3Class(Frame): #Subclass the Tkinter
         #################################################
         self.PrintToGui_Label = Label(self.myFrame, text="PrintToGui_Label", width=75)
         if self.EnableInternal_MyPrint_Flag == 1:
-            self.PrintToGui_Label.grid(row=4, column=0, padx=10, pady=10, columnspan=10, rowspan=10)
+            self.PrintToGui_Label.grid(row=5, column=0, padx=10, pady=10, columnspan=10, rowspan=10)
         #################################################
         #################################################
 
